@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cloudville Bank Generator</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+    }
+
+    .controls input, .controls select, .controls button, .controls textarea {
+      margin: 5px 0;
+      padding: 6px;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .preview {
+      width: 700px;
+      background: white;
+      border: 2px solid #ccc;
+      padding: 20px;
+      position: relative;
+    }
+
+    .cheque, .invoice {
+      display: none;
+    }
+
+    .visible {
+      display: block;
+    }
+
+    .cheque {
+      border: 2px dashed #2196F3;
+      padding: 20px;
+    }
+
+    .cheque h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .cheque .row {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+    }
+
+    .invoice {
+      border: 2px dashed #4CAF50;
+      padding: 20px;
+    }
+
+    .invoice h2 {
+      text-align: center;
+    }
+
+    .invoice-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    .invoice-table th, .invoice-table td {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+
+    .signature {
+      margin-top: 30px;
+      text-align: right;
+    }
+
+    .cats-theme {
+      background: black !important;
+      color: orange !important;
+    }
+
+    .cloudville-bank-theme {
+      background: #0033cc !important;
+      color: limegreen !important;
+    }
+
+    .preview.cats-theme .invoice-table input,
+    .preview.cloudville-bank-theme .invoice-table input {
+      color: yellow;
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <label for="mode">Mode:</label>
+  <select id="mode">
+    <option value="cheque">Cheque</option>
+    <option value="invoice">Invoice</option>
+  </select>
+
+  <div id="cheque-fields">
+    <input type="text" id="chequePayee" placeholder="Pay to the Order of">
+    <input type="text" id="chequeAmount" placeholder="Amount ($)">
+    <input type="text" id="chequeAmountWords" placeholder="Amount (in words)">
+    <input type="date" id="chequeDate">
+    <input type="text" id="chequeMemo" placeholder="Memo">
+    <input type="text" id="chequeNumber" placeholder="Cheque Number">
+    <input type="text" id="chequeAccount" placeholder="Bank Account Info">
+    <input type="text" id="chequeSignature" placeholder="Signature Text">
+  </div>
+
+  <div id="invoice-fields" style="display:none;">
+    <input type="text" id="invoiceFrom" placeholder="From (Your Name or Business)">
+    <input type="text" id="invoiceTo" placeholder="To (Client)">
+    <input type="date" id="invoiceDate">
+    <input type="text" id="invoiceNumber" placeholder="Invoice Number">
+    <div>
+      <input type="text" id="itemDesc" placeholder="Item Description">
+      <input type="number" id="itemQty" placeholder="Qty">
+      <input type="number" id="itemPrice" placeholder="Price">
+      <button onclick="addInvoiceRow()">Add Row</button>
+      <button onclick="deleteInvoiceRow()">Delete Last Row</button>
+    </div>
+    <textarea id="invoiceNotes" placeholder="Notes or Payment Terms"></textarea>
+  </div>
+
+  <button onclick="updatePreview()">Update Preview</button>
+  <button onclick="downloadImage()">Download as Image</button>
+</div>
+
+<div id="preview" class="preview">
+  <!-- Cheque -->
+  <div class="cheque visible" id="chequePreview">
+    <h2>Cloudville Bank Cheque</h2>
+    <div class="row"><strong>Pay to:</strong> <span id="outPayee"></span></div>
+    <div class="row"><strong>Amount:</strong> <span id="outAmount"></span></div>
+    <div class="row"><strong>In Words:</strong> <span id="outAmountWords"></span></div>
+    <div class="row"><strong>Date:</strong> <span id="outDate"></span></div>
+    <div class="row"><strong>Memo:</strong> <span id="outMemo"></span></div>
+    <div class="row"><strong>Cheque #:</strong> <span id="outNumber"></span></div>
+    <div class="row"><strong>Account:</strong> <span id="outAccount"></span></div>
+    <div class="signature"><em>Signature:</em> <span id="outSignature"></span></div>
+  </div>
+
+  <!-- Invoice -->
+  <div class="invoice" id="invoicePreview">
+    <h2>Cloudville Invoice</h2>
+    <div><strong>From:</strong> <span id="invFrom"></span></div>
+    <div><strong>To:</strong> <span id="invTo"></span></div>
+    <div><strong>Date:</strong> <span id="invDate"></span></div>
+    <div><strong>Invoice #:</strong> <span id="invNumber"></span></div>
+
+    <table class="invoice-table" id="invoiceTable">
+      <thead>
+        <tr><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="signature">
+      <strong>Notes:</strong> <p id="invNotes"></p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  const modeSelect = document.getElementById('mode');
+  const previewDiv = document.getElementById('preview');
+
+  modeSelect.addEventListener('change', () => {
+    const mode = modeSelect.value;
+    document.getElementById('cheque-fields').style.display = mode === 'cheque' ? 'block' : 'none';
+    document.getElementById('invoice-fields').style.display = mode === 'invoice' ? 'block' : 'none';
+    document.getElementById('chequePreview').classList.toggle('visible', mode === 'cheque');
+    document.getElementById('invoicePreview').classList.toggle('visible', mode === 'invoice');
+  });
+
+  function updatePreview() {
+    const mode = modeSelect.value;
+    const payee = document.getElementById('chequePayee').value;
+    const from = document.getElementById('invoiceFrom').value;
+    const to = document.getElementById('invoiceTo').value;
+
+    // Reset themes
+    previewDiv.className = 'preview';
+    const isCATS = [payee, from, to].some(v => v.includes('CATS'));
+    const isCloudville = [payee, from, to].some(v => v.includes('Cloudville Bank'));
+    if (isCATS) previewDiv.classList.add('cats-theme');
+    else if (isCloudville) previewDiv.classList.add('cloudville-bank-theme');
+
+    if (mode === 'cheque') {
+      document.getElementById('outPayee').innerText = payee;
+      document.getElementById('outAmount').innerText = `$${document.getElementById('chequeAmount').value}`;
+      document.getElementById('outAmountWords').innerText = document.getElementById('chequeAmountWords').value;
+      document.getElementById('outDate').innerText = document.getElementById('chequeDate').value;
+      document.getElementById('outMemo').innerText = document.getElementById('chequeMemo').value;
+      document.getElementById('outNumber').innerText = document.getElementById('chequeNumber').value;
+      document.getElementById('outAccount').innerText = document.getElementById('chequeAccount').value;
+      document.getElementById('outSignature').innerText = document.getElementById('chequeSignature').value;
+    } else {
+      document.getElementById('invFrom').innerText = from;
+      document.getElementById('invTo').innerText = to;
+      document.getElementById('invDate').innerText = document.getElementById('invoiceDate').value;
+      document.getElementById('invNumber').innerText = document.getElementById('invoiceNumber').value;
+      document.getElementById('invNotes').innerText = document.getElementById('invoiceNotes').value;
+    }
+  }
+
+  function addInvoiceRow() {
+    const desc = document.getElementById('itemDesc').value;
+    const qty = parseFloat(document.getElementById('itemQty').value);
+    const price = parseFloat(document.getElementById('itemPrice').value);
+
+    if (!desc || isNaN(qty) || isNaN(price)) return;
+    const total = (qty * price).toFixed(2);
+
+    const tbody = document.getElementById('invoiceTable').querySelector('tbody');
+    const row = document.createElement('tr');
+    row.innerHTML = `<td>${desc}</td><td>${qty}</td><td>${price}</td><td>$${total}</td>`;
+    tbody.appendChild(row);
+
+    document.getElementById('itemDesc').value = '';
+    document.getElementById('itemQty').value = '';
+    document.getElementById('itemPrice').value = '';
+  }
+
+  function deleteInvoiceRow() {
+    const tbody = document.getElementById('invoiceTable').querySelector('tbody');
+    if (tbody.lastChild) tbody.removeChild(tbody.lastChild);
+  }
+
+  function downloadImage() {
+    html2canvas(document.getElementById('preview')).then(canvas => {
+      const link = document.createElement('a');
+      link.download = 'cloudville_export.png';
+      link.href = canvas.toDataURL();
+      link.click();
+    });
+  }
+</script>
+</body>
+</html>
